@@ -192,6 +192,15 @@ func (r *runner) run(fn *function, params []value, parentMem *memoryView, indent
 			if err != nil {
 				return nil, mem, r.errorAt(inst, err)
 			}
+			if v, ok := inst.operands[0].(localValue); ok && !v.value.IsNil() && !v.value.IsAInlineAsm().IsNil() {
+				// Inline assembly can't be executed at compile time. It must be
+				// run at runtime.
+				err := r.runAtRuntime(fn, inst, locals, &mem, indent)
+				if err != nil {
+					return nil, mem, err
+				}
+				continue
+			}
 			callFn := r.getFunction(fnPtr.llvmValue(&mem))
 			switch {
 			case callFn.name == "runtime.trackPointer":

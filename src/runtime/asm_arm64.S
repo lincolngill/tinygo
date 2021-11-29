@@ -21,3 +21,12 @@ tinygo_scanCurrentStack:
     // Restore stack state and return.
     ldp     x29, x30, [sp], #96
     ret
+
+
+.section .text.tinygo_longjmp
+.global tinygo_longjmp
+tinygo_longjmp:
+    // Note: the code we jump to assumes x0 is set to a non-zero value if we
+    // jump from here (which is conveniently already the case).
+    mov sp, x0 // jumpSP
+    br  x1     // jumpPC
