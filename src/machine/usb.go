@@ -606,10 +606,9 @@ func newUSBSetup(data []byte) usbSetup {
 
 // Read from the RX buffer.
 func (usbcdc *USBCDC) Read(data []byte) (n int, err error) {
-	// check if RX buffer is empty
-	size := usbcdc.Buffered()
-	if size == 0 {
-		return 0, nil
+	size := 0
+	for size == 0 {
+		size = usbcdc.Buffered()
 	}
 
 	// Make sure we do not read more from buffer than the data slice can hold.

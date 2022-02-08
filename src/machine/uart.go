@@ -40,10 +40,9 @@ const (
 
 // Read from the RX buffer.
 func (uart *UART) Read(data []byte) (n int, err error) {
-	// check if RX buffer is empty
-	size := uart.Buffered()
-	if size == 0 {
-		return 0, nil
+	size := 0
+	for size == 0 {
+		size = uart.Buffered()
 	}
 
 	// Make sure we do not read more from buffer than the data slice can hold.

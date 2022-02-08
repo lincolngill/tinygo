@@ -4,6 +4,7 @@
 package os
 
 import (
+	"machine"
 	_ "unsafe"
 )
 
@@ -40,7 +41,7 @@ func NewFile(fd uintptr, name string) *File {
 
 // Read is unsupported on this system.
 func (f stdioFileHandle) Read(b []byte) (n int, err error) {
-	return 0, ErrUnsupported
+	return machine.Serial.Read(b)
 }
 
 func (f stdioFileHandle) ReadAt(b []byte, off int64) (n int, err error) {
