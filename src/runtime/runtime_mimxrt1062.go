@@ -126,6 +126,17 @@ func putchar(c byte) {
 	machine.Serial.WriteByte(c)
 }
 
+func getchar() byte {
+	for machine.UART1.Buffered() == 0 {
+	}
+	v, _ := machine.UART1.ReadByte()
+	return v
+}
+
+func buffered() int {
+	return machine.UART1.Buffered()
+}
+
 func exit(code int) {
 	abort()
 }

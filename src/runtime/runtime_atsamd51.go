@@ -36,6 +36,17 @@ func putchar(c byte) {
 	machine.Serial.WriteByte(c)
 }
 
+func getchar() byte {
+	for machine.Serial.Buffered() == 0 {
+	}
+	v, _ := machine.Serial.ReadByte()
+	return v
+}
+
+func buffered() int {
+	return machine.Serial.Buffered()
+}
+
 func initClocks() {
 	// set flash wait state
 	sam.NVMCTRL.CTRLA.SetBits(0 << sam.NVMCTRL_CTRLA_RWS_Pos)

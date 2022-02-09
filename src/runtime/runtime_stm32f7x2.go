@@ -38,6 +38,17 @@ func putchar(c byte) {
 	machine.Serial.WriteByte(c)
 }
 
+func getchar() byte {
+	for machine.Serial.Buffered() == 0 {
+	}
+	v, _ := machine.Serial.ReadByte()
+	return v
+}
+
+func buffered() int {
+	return machine.Serial.Buffered()
+}
+
 func initCLK() {
 	// PWR_CLK_ENABLE
 	stm32.RCC.APB1ENR.SetBits(stm32.RCC_APB1ENR_PWREN)
