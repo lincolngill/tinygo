@@ -128,6 +128,7 @@ func putchar(c byte) {
 
 func getchar() byte {
 	for machine.UART1.Buffered() == 0 {
+		Gosched()
 	}
 	v, _ := machine.UART1.ReadByte()
 	return v

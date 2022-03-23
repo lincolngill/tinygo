@@ -41,8 +41,9 @@ func NewFile(fd uintptr, name string) *File {
 // Read reads up to len(b) bytes from machine.Serial.
 // It returns the number of bytes read and any error encountered.
 func (f stdioFileHandle) Read(b []byte) (n int, err error) {
-	size := 0
+	size := buffered()
 	for size == 0 {
+		gosched()
 		size = buffered()
 	}
 
@@ -91,6 +92,9 @@ func getchar() byte
 
 //go:linkname buffered runtime.buffered
 func buffered() int
+
+//go:linkname gosched runtime.Gosched
+func gosched() int
 
 func Pipe() (r *File, w *File, err error) {
 	return nil, nil, ErrNotImplemented

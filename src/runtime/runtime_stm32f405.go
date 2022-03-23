@@ -166,6 +166,7 @@ func putchar(c byte) {
 
 func getchar() byte {
 	for machine.Serial.Buffered() == 0 {
+		Gosched()
 	}
 	v, _ := machine.Serial.ReadByte()
 	return v

@@ -3,7 +3,9 @@
 
 package machine
 
-import "errors"
+import (
+	"errors"
+)
 
 var errUARTBufferEmpty = errors.New("UART buffer empty")
 
@@ -40,8 +42,9 @@ const (
 
 // Read from the RX buffer.
 func (uart *UART) Read(data []byte) (n int, err error) {
-	size := 0
+	size := uart.Buffered()
 	for size == 0 {
+		gosched()
 		size = uart.Buffered()
 	}
 
@@ -88,3 +91,6 @@ func (uart *UART) Buffered() int {
 func (uart *UART) Receive(data byte) {
 	uart.Buffer.Put(data)
 }
+
+//go:linkname gosched runtime.Gosched
+func gosched() int
