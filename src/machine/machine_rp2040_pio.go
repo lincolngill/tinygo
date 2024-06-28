@@ -206,12 +206,14 @@ func (cfg *PIOStateMachineConfig) SetClkDivIntFrac(div uint16, frac uint8) {
 		(uint32(div) << rp.PIO0_SM0_CLKDIV_INT_Pos)
 }
 
-// Set sm clock Hz
+// SetClkHz sets the state machine clock frequency in Hz
+//
+// hz must be between sysClk/0xFFFF and sysClk
+// Or 1,907 and 125,000,000 when sys clk is the default 125 MHz
 func (cfg *PIOStateMachineConfig) SetClkHz(hz uint32) {
-	div := float32(CPUFrequency()) / float32(hz)
-	divInt := uint16(div)
-	fracInt := uint8((div - float32(divInt)) * (1 << 8))
-	cfg.SetClkDivIntFrac(divInt, fracInt)
+	d := uint16(CPUFrequency() / hz)
+	f := uint8(((CPUFrequency() % hz) << 8) / hz)
+	cfg.SetClkDivIntFrac(d, f)
 }
 
 // SetWrap sets the wrapping configuration for the state machine
@@ -260,7 +262,7 @@ func (cfg *PIOStateMachineConfig) SetSideSet(bitCount uint8, optional bool, pind
 		(boolToBit(pindirs) << rp.PIO0_SM0_EXECCTRL_SIDE_PINDIR_Pos)
 }
 
-// Set Out base pin and count
+// SetOutPins sets the base Out pin and count of consecutive Out pins
 //
 // outBase 0-31 First pin to set as output
 // outCount 0-32 Number of pins to set
@@ -270,24 +272,26 @@ func (cfg *PIOStateMachineConfig) SetOutPins(outBase Pin, outCount uint8) {
 		(uint32(outCount) << rp.PIO0_SM0_PINCTRL_OUT_COUNT_Pos)
 }
 
-// SetSetPins sets the pins a PIO 'set' instruction modifies
+// SetSetPins sets the base Set pin and count of consecutive Set pins
+//
+// The PIO 'set' instruction modifies these pins
 func (cfg *PIOStateMachineConfig) SetSetPins(base Pin, count uint8) {
 	cfg.PinCtrl = (cfg.PinCtrl & ^uint32(rp.PIO0_SM0_PINCTRL_SET_BASE_Msk|rp.PIO0_SM0_PINCTRL_SET_COUNT_Msk)) |
 		(uint32(base) << rp.PIO0_SM0_PINCTRL_SET_BASE_Pos) |
 		(uint32(count) << rp.PIO0_SM0_PINCTRL_SET_COUNT_Pos)
 }
 
-// Set In base pin
+// SetInBase sets the base In pin
 //
-// inBase 0-31 First pin to use as iniput
+// inBase 0-31 First pin to use as input
 func (cfg *PIOStateMachineConfig) SetInBase(inBase Pin) {
 	cfg.PinCtrl = (cfg.PinCtrl & ^uint32(rp.PIO0_SM0_PINCTRL_IN_BASE_Msk)) |
 		(uint32(inBase) << rp.PIO0_SM0_PINCTRL_IN_BASE_Pos)
 }
 
-// Set Sideset base pin
+// SetSideSetBase sets the base Side Set pin
 //
-// sideSetBase 0-31 First pin to use as iniput
+// sideSetBase 0-31 First pin to use as output
 func (cfg *PIOStateMachineConfig) SetSideSetBase(sideSetBase Pin) {
 	cfg.PinCtrl = (cfg.PinCtrl & ^uint32(rp.PIO0_SM0_PINCTRL_SIDESET_BASE_Msk)) |
 		(uint32(sideSetBase) << rp.PIO0_SM0_PINCTRL_SIDESET_BASE_Pos)
@@ -354,11 +358,12 @@ func (sm *PIOStateMachine) SetConfig(cfg *PIOStateMachineConfig) {
 	sm.GetRegister(PIOStateMachinePinCtrlReg).Set(cfg.PinCtrl)
 }
 
-// Aliases for Put & Get methods
+// Tx and Rx are aliases for the Put & Get methods
 var Tx = (*PIOStateMachine).Put
 var Rx = (*PIOStateMachine).Get
 
-// Write a word of data to a state machine's TX FIFO
+// Put writes a word of data to a state machine's Tx FIFO
+//
 // Blocks while Tx FIFO is full
 func (sm *PIOStateMachine) Put(data uint32) {
 	for sm.PIO.Device.FSTAT.HasBits(1 << (rp.PIO0_FSTAT_TXFULL_Pos + sm.Index)) {
@@ -366,7 +371,8 @@ func (sm *PIOStateMachine) Put(data uint32) {
 	sm.TxReg.Set(data)
 }
 
-// Read a word of data from state machine's RX FIFO
+// Get reads a word of data from state machine's Rx FIFO
+//
 // Blocks while Rx FIFO is empty
 func (sm *PIOStateMachine) Get() (data uint32) {
 	for sm.PIO.Device.FSTAT.HasBits(1 << (rp.PIO0_FSTAT_RXEMPTY_Pos + sm.Index)) {
@@ -390,19 +396,6 @@ func (sm *PIOStateMachine) GetRegister(reg PIOStateMachineReg) *volatile.Registe
 
 	return (*volatile.Register32)(unsafe.Pointer(uintptr(start) + offset))
 }
-
-/* Redundant. Done in Init() rather than every Put!
-// GetTxRegister gets a pointer to the Tx FIFO register for this state machine
-func (sm *PIOStateMachine) GetTxRegister() *volatile.Register32 {
-	// SM0_CLKDIV is the first register of the first state machine
-	start := unsafe.Pointer(&sm.PIO.Device.TXF0)
-
-	// 4 bytes (1 register) per state machine
-	offset := uintptr(sm.Index) * 4
-
-	return (*volatile.Register32)(unsafe.Pointer(uintptr(start) + offset))
-}
-*/
 
 // SetConsecurityPinDirs sets a range of pins to either 'in' or 'out'
 func (sm *PIOStateMachine) SetConsecutivePinDirs(pin Pin, count uint8, isOut bool) {
@@ -439,17 +432,17 @@ func (sm *PIOStateMachine) ClearFIFOs() {
 	xorReg.Set(rp.PIO0_SM0_SHIFTCTRL_FJOIN_RX_Msk)
 }
 
-// Gets the 'XOR' alias for a register
+// XORRegiser returns the 'XOR' alias for a register
 //
 // Registers have 'ALIAS' registers with special semantics, see
 // 2.1.2. Atomic Register Access in the RP2040 Datasheet
 //
 // Each peripheral register block is allocated 4kB of address space, with registers accessed using one of 4 methods,
 // selected by address decode.
-//  • Addr + 0x0000 : normal read write access
-//  • Addr + 0x1000 : atomic XOR on write
-//  • Addr + 0x2000 : atomic bitmask set on write
-//  • Addr + 0x3000 : atomic bitmask clear on write
+//   - Addr + 0x0000 : normal read write access
+//   - Addr + 0x1000 : atomic XOR on write
+//   - Addr + 0x2000 : atomic bitmask set on write
+//   - Addr + 0x3000 : atomic bitmask clear on write
 func XORRegister(reg *volatile.Register32) *volatile.Register32 {
 	return (*volatile.Register32)(unsafe.Pointer(uintptr(unsafe.Pointer(reg)) | REG_ALIAS_XOR_BITS))
 }
